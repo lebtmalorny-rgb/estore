@@ -1,19 +1,24 @@
-# OceanStor eStor для VMware ESXi / vSphere
+# Huawei OceanStor eStor T10 и T35
 
-Лабораторный одноконтроллерный эмулятор Huawei OceanStor, упакованный в OVA/OVF из
+Инструкции по настройке лабораторных эмуляторов **T10 (Dorado6000 V3)** и **T35 (Dorado V6)**.
+
+| Задача | Руководство |
+| --- | --- |
+| Выбрать образ для ESXi, KVM, Proxmox или FusionCompute, сверить диски и контрольные суммы | [Комплекты QCOW2, OVA и VMDK](Huawei_eStor_QCOW2/README.ru.md) |
+| Импортировать T10 в ESXi / vSphere | [Инструкция по импорту T10 v2](OceanStor_eStor_T10_ESXi_v2/IMPORT.txt) |
+| Настроить пул, порты iSCSI и пользователя REST на T10 | [Настройка eStor через DeviceManager или CLI](ESTOR_SETUP.md) |
+| Задать IP после пропущенного мастера T10 и подключить Cinder | [Сеть T10 и iSCSI для Cinder Epoxy 2025.1](T10-network-iSCSI-Cinder-Epoxy-2025.1.ru.md) |
+| Настроить multipath для Cinder и Nova в Kolla-Ansible 2025.1 | [Настройка и проверка двух путей](CINDER_MULTIPATH_KOLLA_2025_1.md) |
+| Импортировать T35 EN в ESXi 8 | [Инструкция по импорту T35](OceanStor_eStor_T35_ESXi8_EN/IMPORT.txt) |
+| Проверить параметры ВМ T35 и разобраться с ошибкой `System is not ready` | [Диагностика запуска](OceanStor_eStor_T35_work/T35-ESXi8-instruction.ru.md) · [Краткая памятка по параметрам](OceanStor_eStor_T35_work/T35-ESXi8-settings.ru.txt) |
+
+## Установка T10 на VMware ESXi / vSphere
+
+Лабораторный одноконтроллерный эмулятор T10 упакован в OVA/OVF из
 `Vmware_OceanStor_eStor_V1R1C00T10_single_controller.vmdk`.
-
 Образ содержит профили **Dorado V3**: `5000_SAS`, `6000_SAS`, `5000_NVME`.
 Внутри — EulerOS 2.0 SP3, компонент OSM версии `V300R003C00`, сборка от 18.12.2018.
-Это учебный стенд; он не подтверждает совместимость с Dorado V6 или поведение
-физического массива. При упаковке содержимое системного диска сохранено.
-
-## Дополнительные инструкции
-
-- [Настройка самого eStor / Dorado V3](ESTOR_SETUP.md): вход в DeviceManager,
-  подготовка дисков, пула и двух iSCSI-портов через UI и консоль Huawei.
-- [Подключение к Cinder и Nova в Kolla-Ansible / OpenStack Epoxy 2025.1](CINDER_MULTIPATH_KOLLA_2025_1.md):
-  сеть, Huawei XML, backend Cinder, multipath, проверка подключения и отказа пути.
+При упаковке содержимое системного диска сохранено.
 
 Адреса и идентификаторы в инструкциях являются примерами. Команды Huawei сверены
 со встроенной справкой исходного образа; запуск на стенде и работа с Cinder ещё

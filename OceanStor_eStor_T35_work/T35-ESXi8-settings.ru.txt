@@ -1,0 +1,68 @@
+Huawei eStor T35 на ESXi 8: параметры для проверки
+Проверено по локальному архиву и документации Broadcom 8 ноября 2026.
+
+Главное обнаруженное расхождение
+В исходном FusionCompute OVF T35 указано 8 vCPU и coresPerSocket=8: один виртуальный сокет с восемью ядрами.
+В подготовленном OceanStor_eStor_T35_ESXi8_EN.ovf записано только 8 vCPU; параметр coresPerSocket не перенесён. Это недоработка упаковки.
+В документации Broadcom для аппаратных версий ниже HW20 указан default: одно ядро на сокет. Поэтому импорт мог дать 8 сокетов по 1 ядру. Фактическая топология проблемной ВМ неизвестна; причиной отказа app_data это пока не доказано.
+Рабочая тестовая ВМ на Proxmox имела 1 сокет x 8 ядер.
+
+Базовая конфигурация для нашего адаптированного диска
+CPU: 8 vCPU, Cores per Socket=8, итоговое число сокетов=1.
+RAM: 16384 MiB (16 GiB).
+CPU Limit и Memory Limit: Unlimited. Это рекомендация для диагностического запуска, а не установленный специальный порог T35.
+Firmware: BIOS, как в исходном шаблоне Huawei.
+Virtual hardware: сохранить version 10 (ESXi 5.5 and later). ESXi 8 эту версию поддерживает; переход на HW20 для загрузки не обязателен.
+Guest OS: Other Linux (64-bit), как в нашем OVF. Внутри образа EulerOS с ядром 3.10, не SUSE из старых руководств по T10.
+SCSI controller 0: LSI Logic Parallel (lsilogic), как в адаптированном OVF. В initrd присутствуют mptspi, mptbase, mptscsih. Это выбранный вариант адаптации для VMware, не настройка из исходного VirtIO-шаблона Huawei и не доказательство полной работоспособности на ESXi.
+SCSI 0:0: существующий системный VMDK 20 GiB, ожидаемый /dev/sda.
+SCSI 0:1: отдельный диск данных 240 GiB, ожидаемый /dev/sdb. При новом развёртывании — пустой выделенный диск: скрипт eStor может форматировать его автоматически.
+Для уже инициализированной ВМ диск данных сохранять; замена или форматирование в рамках этой проверки не требуется.
+Network: пять E1000, все подключены и Connect at power on включён. Уточнить соответствие MAC, eth-интерфейсов и port group; для одноконтроллерного лабораторного запуска можно сохранить одну общую лабораторную сеть, как в шаблоне.
+Memory Hot Add: выключен, как в исходном шаблоне Huawei.
+CPU Hot Add: исходный Huawei-шаблон разрешает hotplug; обязательность его отключения для T35 не установлена. На время сравнительной диагностики можно выключить, чтобы сохранять фиксированную топологию. Это диагностическая рекомендация, не требование Huawei.
+Профиль NVMe в мастере T35 относится к эмулируемому массиву. Он не требует менять контроллер системного VMDK на NVMe.
+
+Первая проверка для администратора ESXi
+При выключенной ВМ: Edit Settings -> Virtual Hardware -> CPU.
+Выставить CPU=8 и Cores per Socket=8. Проверить итог: 1 socket.
+Для HW20 и новее в vSphere Client настройка перенесена в VM Options -> CPU Topology. У нашего шаблона HW10, поэтому применяется прежнее расположение.
+После сохранения снова открыть настройки и проверить значение.
+Контрольные значения в VMX (справочно, предпочтительно менять через UI):
+  numvcpus = "8"
+  cpuid.coresPerSocket = "8"
+Это первый отдельный сравнительный тест. Он устраняет подтверждённое расхождение с исходным шаблоном, но не гарантирует исправление System is not ready.
+
+Если после выравнивания топологии app_data не появляется
+Следует получить фактическую модель CPU, EVC baseline и ручные CPUID masks. EVC может скрывать инструкции процессора; точный минимальный набор инструкций для этой сборки T35 не установлен.
+Успешный запуск на Proxmox был на Intel Xeon E5-2680 v4 с cpu=host. Это проверенный пример, не минимальное требование и не доказательство несовместимости с AMD.
+Собрать сообщения первого запуска app_data: /OSM/log/cur_debug/messages, msg_sys, msg_err, message_euler и startup.log. Надпись Start all components successfully сама по себе не означает готовность дочерних процессов.
+Низкий MemTotal в госте нельзя автоматически объяснять лимитом ESXi: в штатной строке загрузки T35 есть cache_auto_enable=1 RATIO=3 GAP=2800M и crashkernel. Сначала сопоставить параметры ВМ, загрузки и резервирование памяти самим ядром.
+
+Что подтверждено и что остаётся неизвестным
+Подтверждено исходным FusionCompute OVF: 8 vCPU / 8 cores per socket, 16 GiB RAM, BIOS, 20+240 GiB, пять NIC, Memory Hot Add off.
+Подтверждено на Proxmox: оба диска запускают app_data и завершают инициализацию при 1 socket x 8 cores. Адаптированный диск проверен с VirtIO SCSI и E1000; веб-сервер отвечает, CLI достигает первого запроса пароля.
+В архиве T35 находятся варианты Huawei Cloud и FusionCompute; VMware-варианта T35 в нём нет. ESXi-пакет является нашей адаптацией.
+Публичную официальную инструкцию Huawei, подтверждающую T35 именно на ESXi 8, получить не удалось. Страница продукта Huawei при обращении вернула HTTP 403. Специальная сертифицированная конфигурация T35+ESXi8 не заявляется.
+Причина сбоя на конкретном ESXi не установлена. Изменение топологии ещё не тестировалось на ESXi. Существующий OVF и OVA в ходе этого исследования не менялись.
+
+Источники (пути от корня исходного комплекта)
+Исходный шаблон Huawei, CPU: строка 56; RAM: строка 64; BIOS: строка 34; диски: строки 9-10:
+OceanStor_eStor_T35_work/extracted/FusionCompute_OceanStor_eStor_V1R1C00T35_single_controller/contents/FusionCompute_OceanStor_eStor_V1R1C00T35_single_controller.ovf
+Подготовленный OVF, CPU Item: строки 41-48, coresPerSocket отсутствует:
+OceanStor_eStor_T35_ESXi8_EN/OceanStor_eStor_T35_ESXi8_EN.ovf
+Журналы и конфигурации тестовых ВМ:
+OceanStor_eStor_T35_work/proxmox-test-20261108/
+
+Broadcom: defaults CPU topology и условия Automatic vTopology:
+https://knowledge.broadcom.com/external/article/438023/rightsizing-virtual-machines-on-esxi-80.html
+Broadcom: расположение Cores per Socket в vSphere Client:
+https://knowledge.broadcom.com/external/article/407648
+Broadcom: Host Client может записывать coresPerSocket=1 при сохранении:
+https://knowledge.broadcom.com/external/article/425838
+Broadcom: совместимость ESXi и hardware versions:
+https://knowledge.broadcom.com/external/article/312100/esxiesx-hosts-and-compatible-virtual-mac.html
+Broadcom: влияние лимитов CPU и RAM:
+https://knowledge.broadcom.com/external/article/326270/impact-of-virtual-machine-memory-and-cpu.html
+Broadcom: EVC и видимые гостю возможности CPU:
+https://knowledge.broadcom.com/external/article/313545/vmware-evc-and-cpu-compatibility-faq.html
